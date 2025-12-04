@@ -1,0 +1,8 @@
+streamlit==1.39.0
+pandas==2.2.2
+numpy==1.26.4
+plotly==5.23.0
+joblib==1.4.2
+scikit-learn==1.5.2
+category-encoders==2.6.1
+feature-engine==1.5.1
