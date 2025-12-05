@@ -6,13 +6,15 @@ import numpy as np
 from pathlib import Path
 from utils import *
 
-st.set_page_config(page_title="Предсказание стоимости автомобилей", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Предсказание стоимости автомобилей", page_icon="🚗", layout="wide")
 
 MODEL_DIR = Path(__file__).resolve().parent / "models"
 MODEL_PATH = MODEL_DIR / "full_pipeline.pkl"
 FEATURE_NAMES_PATH = MODEL_DIR / "feature_names.pkl"
+TRAIN_DATA_PATH = Path(__file__).resolve().parent / "cars_train.csv" 
+IMAGE_PATH = Path(__file__).resolve().parent / "indian_seller.jpg" 
 
-
+st.image(str(IMAGE_PATH), caption="Индийский продавец автомобилей", width=None)
 @st.cache_resource
 def load_model():
     """Загружаем модель через pickle"""
@@ -23,6 +25,14 @@ def load_model():
         feature_names = joblib.load(f)
     return model, feature_names
 
+@st.cache_data
+def load_train_data():
+    """Загружаем обучающие данные для анализа"""
+    if TRAIN_DATA_PATH.exists():
+        return pd.read_csv(TRAIN_DATA_PATH)
+    else:
+        st.error(f"❌ Не найден файл обучающих данных: {TRAIN_DATA_PATH}")
+        st.stop()
 
 # Загружаем модель
 try:
@@ -30,6 +40,41 @@ try:
 except Exception as e:
     st.error(f"❌ Ошибка загрузки модели: {e}")
     st.stop()
+
+# --- Загрузка обучающих данных и визуализации ---
+st.title("📊 Анализ обучающих данных")
+
+train_df = load_train_data()
+
+
+# --- Визуализации ---
+st.subheader("📈 Визуализации")
+
+fuel_price = train_df.groupby('fuel')['selling_price'].mean().sort_values()
+fig1 = px.pie(
+    values=fuel_price.values,
+    names=fuel_price.index,
+    title="Распределение цены по типу топлива"
+)
+st.plotly_chart(fig1, use_container_width=True)
+
+fig2 = px.histogram(train_df, x='selling_price', nbins=30, title="Распределение стоимости автомобилей")
+st.plotly_chart(fig2, use_container_width=True)
+
+if 'name' in train_df.columns:
+    plan_df = train_df.groupby('name')['selling_price'].median().sort_values(ascending=False).head(10).reset_index()
+    fig3 = px.bar(plan_df, x='name', y='selling_price', 
+                  title="Медианная цена по названиям автомобилей (ТОП-10)")
+    st.plotly_chart(fig3, use_container_width=True)
+
+fig4 = px.scatter(train_df, x='year', y='selling_price', hover_data=['name'],
+                  title="Цена в зависимости от года выпуска")
+st.plotly_chart(fig4, use_container_width=True)
+
+
+
+
+
 
 
 # --- Основной интерфейс ---
@@ -68,28 +113,6 @@ with col1:
 with col2:
     average_cost = df['prediction'].mean()
     st.metric("Средняя предсказанная цена автомобиля ", f"{average_cost:.0f}у.е.")
-
-
-
-# --- Визуализации ---
-st.subheader("📈 Визуализации")
-
-fuel_price = df.groupby('fuel')['prediction'].mean().sort_values()
-fig1 = px.pie(
-    values=fuel_price.values,
-    names=fuel_price.index,
-    title="Распределение цены по типу топлива"
-)
-st.plotly_chart(fig1, use_container_width=True)
-
-fig2 = px.histogram(df, x='prediction', nbins=30, title="Распределение стоимости автомобилей")
-st.plotly_chart(fig2, use_container_width=True)
-
-if 'name' in df.columns:
-    plan_df = df.groupby('name')['prediction'].median().sort_values(ascending=False).head(10).reset_index()
-    fig3 = px.bar(plan_df, x='name', y='prediction', 
-                  title="Медианная цена по названиям автомобилей (ТОП-10)")
-    st.plotly_chart(fig3, use_container_width=True)
 
 
 # --- Форма для предсказания ---
