@@ -72,11 +72,6 @@ fig4 = px.scatter(train_df, x='year', y='selling_price', hover_data=['name'],
 st.plotly_chart(fig4, use_container_width=True)
 
 
-
-
-
-
-
 # --- Основной интерфейс ---
 st.title("🎯 Предсказание стоимости автомобилей")
 
@@ -91,6 +86,8 @@ if uploaded_file is None:
 df = pd.read_csv(uploaded_file).drop(['selling_price'], axis=1)
 features_orig = list(df)
 
+
+
 try:
     features = FEATURE_NAMES
     predictions_log = MODEL.predict(df)
@@ -103,6 +100,57 @@ except Exception as e:
     st.error(f"❌ Ошибка при обработке данных: {e}")
     st.stop()
 
+# --- Визуализация весов модели ---
+st.subheader("⚖️ Веса модели Ridge")
+
+try:
+    if hasattr(MODEL[-1], 'coef_'):
+        weights = MODEL[-1].coef_.flatten()  # Ridge возвращает 1D array для одной целевой переменной
+        weights_df = pd.DataFrame({
+            'Признак': FEATURE_NAMES,
+            'Вес': weights
+        })
+
+        # Сортировка по абсолютному значению (по значимости)
+        weights_df = weights_df.sort_values(by='Вес', key=abs, ascending=False)
+
+        st.dataframe(weights_df.reset_index(drop=True))
+
+       # Используем Plotly Express для красивого интерактивного графика
+        fig = px.bar(
+            weights_df,
+            x='Вес',
+            y='Признак',
+            orientation='h',
+            color='Вес',
+            color_continuous_scale=['red', 'white', 'green'],
+            title="Коэффициенты Ridge-модели",
+            labels={'Вес': 'Значение коэффициента', 'Признак': 'Признак'},
+        )
+
+        fig.update_layout(
+            coloraxis_colorbar=dict(title=""),
+            xaxis_title="Значение коэффициента (вес)",
+            yaxis_title="Признак",
+            yaxis=dict(autorange='reversed'),
+            height=max(400, len(weights_df) * 20),
+            showlegend=False,
+            margin=dict(l=150, r=50, t=80, b=80)
+        )
+        fig.add_vline(x=0, line_dash="dash", line_color="black", opacity=0.7)
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.caption("🟢 Положительные веса → увеличивают предсказанную стоимость\n"
+                   "🔴 Отрицательные веса → уменьшают предсказанную стоимость")
+        if hasattr(MODEL, 'intercept_'):
+            st.caption(f"Свободный член (intercept): {MODEL[-1].intercept_[0] if isinstance(MODEL[-1].intercept_, np.ndarray) else MODEL[-1].intercept_:.2f}")
+
+    else:
+        st.warning("Модель не содержит коэффициентов (возможно, ещё не обучена).")
+
+except Exception as e:
+    st.error(f"❌ Ошибка при визуализации весов: {e}")
 
 # --- Метрики ---
 st.subheader("📊 Результаты")
